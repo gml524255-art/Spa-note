@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SPA 교정 노트</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SPA 노트">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1f29" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:0}
+body{margin:0;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+/* Layout: one-column study app, sticky top header, fixed bottom tab bar; red-pen "wrong" vs ink "right" */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --line:#dfe2e8; --fg:#1b2130; --muted:#646c7d;
+  --ink:#1f4fd1; --ink-soft:#e7edfc; --pen:#c8372d; --pen-soft:#fbe9e7; --ok:#1d7f55; --ok-soft:#e3f3eb; --mark:#fff1a8;
+  --f-display:"Space Grotesk","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12151c; --surface:#1b1f29; --line:#2d3342; --fg:#e8ebf2; --muted:#9aa2b4;
+  --ink:#7fa2ff; --ink-soft:#1f2a47; --pen:#ff7b6e; --pen-soft:#3a1f1d; --ok:#5fd19b; --ok-soft:#163327; --mark:#5a4d12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151c; --surface:#1b1f29; --line:#2d3342; --fg:#e8ebf2; --muted:#9aa2b4;
+  --ink:#7fa2ff; --ink-soft:#1f2a47; --pen:#ff7b6e; --pen-soft:#3a1f1d; --ok:#5fd19b; --ok-soft:#163327; --mark:#5a4d12; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(96px + env(safe-area-inset-bottom,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header .in{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-size:1.15rem;margin:0;letter-spacing:-.01em}
+h1 b{color:var(--ink)}
+.stat{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+h2{font-family:var(--f-display);font-size:1.05rem;margin:0;text-wrap:balance}
+.lbl{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,.item:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 16px;font-weight:600;min-height:48px}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.good{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.btn.bad{background:var(--pen-soft);border-color:var(--pen);color:var(--pen)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.btn{flex:1 1 0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:.88rem;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.wrong{color:var(--pen);text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb,var(--pen) 70%,transparent)}
+.right{color:var(--fg);font-weight:700;font-size:1.3rem;line-height:1.35}
+.meaning{font-size:1.05rem}
+.ex{background:var(--ink-soft);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.ex p{margin:0;flex:1;min-width:0}
+.spk{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.spk svg{width:18px;height:18px}
+.spk.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.reveal{border:1.5px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);background:transparent;width:100%}
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.boxes div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 4px}
+.boxes b{display:block;font-family:var(--f-display);font-size:1.2rem;font-variant-numeric:tabular-nums}
+.boxes span{font-size:.75rem;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;width:100%}
+.item .t{flex:1;min-width:0}
+.item .t div{font-size:.95rem}
+.tag{font-family:var(--f-mono);font-size:.7rem;padding:2px 7px;border-radius:6px;background:var(--ink-soft);color:var(--ink);white-space:nowrap}
+.done{color:var(--ok);font-size:.8rem;font-weight:600;white-space:nowrap}
+.search{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:inherit;color:var(--fg)}
+.v-row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.v-row .w{font-size:.88rem}
+.v-row .r{font-weight:700}
+.v-row .m{font-size:.85rem;color:var(--muted)}
+textarea{width:100%;min-height:140px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);color:var(--fg);font:inherit;line-height:1.6;resize:vertical}
+.q{font-size:1.05rem;font-weight:600}
+.tips{background:var(--mark);border-radius:10px;padding:12px 14px;font-size:.92rem}
+.model{font-size:1rem;line-height:1.75}
+.model .miss{background:var(--pen-soft);color:var(--pen);border-radius:3px;padding:0 2px}
+.cover{font-family:var(--f-mono);font-size:.85rem}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;color:var(--muted);font-size:.9rem}
+.old{font-size:.92rem;color:var(--muted);margin-top:8px}
+.back{background:none;border:none;color:var(--ink);font-weight:600;padding:6px 0}
+.mic{display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--pen);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}.prog i{transition:none}}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+nav .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav button{background:none;border:none;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.78rem;color:var(--muted)}
+nav button svg{width:22px;height:22px}
+nav button[aria-current="page"]{color:var(--ink);font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:32px 8px}
+.note{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="in"><h1>SPA <b>교정 노트</b></h1><span class="stat" id="hstat"></span></div></header>
+<main class="wrap" id="app"><p class="empty">불러오는 중…</p></main>
+<nav><div class="in">
+  <button id="t-cards" data-tab="cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></svg>어휘 카드</button>
+  <button id="t-answers" data-tab="answers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10a7 7 0 0 1-14 0M12 17v5"/></svg>답변 연습</button>
+  <button id="t-list" data-tab="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>전체 목록</button>
+</div></nav>
+
+<script>
+const SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>';
+const BOXN=['새 카드','헷갈림','거의 앎','외움'];
+let D={vocab:[],answers:[]}, S={box:{},done:{},tab:'cards',vf:'due',af:'전체'};
+let cur=null, revealed=false, openAns=null, tts=null, dict=null, attempt='', listening=false, q='';
+
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function load(){try{const s=JSON.parse(localStorage.getItem('spa-state')||'null');if(s)S={...S,...s}}catch(e){}}
+function save(){try{localStorage.setItem('spa-state',JSON.stringify(S))}catch(e){}}
+const vid=v=>v.wrong+'→'+v.right;
+const box=v=>S.box[vid(v)]||0;
+function tagOf(q){const m=q.match(/^\[([^\]]+)\]/);if(!m)return'기타';const t=m[1];const tm=t.match(/^Test \d+/);return tm?tm[0]:t}
+const titleOf=q=>q.replace(/^\[[^\]]+\]\s*/,'');
+
+/* ---------- speech ---------- */
+async function speak(text,btn){
+  document.querySelectorAll('.spk.on').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  const off=()=>btn&&btn.classList.remove('on');
+  try{
+    if(tts){await tts.speak(text,{language:'en',rate:.95});off();return}
+  }catch(e){if(e&&e.code==='not_granted')tts=null;else{off();return}}
+  try{
+    const ss=window.speechSynthesis;if(!ss){off();return}
+    ss.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.95;u.onend=off;u.onerror=off;ss.speak(u);
+  }catch(e){off()}
+}
+function spkBtn(text){return `<button class="spk" aria-label="발음 듣기" data-say="${esc(text)}">${SPK}</button>`}
+
+/* ---------- vocab cards ---------- */
+function vocabPool(){
+  if(S.vf==='due')return D.vocab.filter(v=>box(v)<3);
+  if(S.vf==='hard')return D.vocab.filter(v=>box(v)===1);
+  return D.vocab.slice();
+}
+function pickCard(){
+  const p=vocabPool();if(!p.length){cur=null;return}
+  const min=Math.min(...p.map(box));const c=p.filter(v=>box(v)===min&&v!==cur);
+  const from=c.length?c:p;cur=from[Math.floor(Math.random()*from.length)];revealed=false;
+}
+function rCards(){
+  const counts=[0,0,0,0];D.vocab.forEach(v=>counts[box(v)]++);
+  const pct=Math.round(counts[3]/D.vocab.length*100);
+  const f=[['due','외울 것'],['hard','헷갈림만'],['all','전체']];
+  let h=`<div class="stack">
+  <div class="boxes">${counts.map((n,i)=>`<div><b>${n}</b><span>${BOXN[i]}</span></div>`).join('')}</div>
+  <div class="prog" aria-label="외운 비율 ${pct}%"><i style="width:${pct}%"></i></div>
+  <div class="chips">${f.map(([k,l])=>`<button class="chip" data-vf="${k}" aria-pressed="${S.vf===k}">${l}</button>`).join('')}</div>`;
+  if(!cur||!vocabPool().includes(cur))pickCard();
+  if(!cur){h+=`<div class="card empty">이 묶음은 다 외웠어요.<br>다른 필터를 골라 보세요.</div></div>`;return h}
+  h+=`<div class="card stack">
+    <div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">내가 한 실수</span><span class="tag">${BOXN[box(cur)]}</span></div>
+    <div class="wrong meaning">${esc(cur.wrong)}</div>
+    <div><span class="lbl">뜻</span><div class="meaning">${esc(cur.meaning)}</div></div>`;
+  if(!revealed){h+=`<button class="reveal" id="reveal">올바른 표현을 떠올린 뒤 눌러 확인</button></div>`}
+  else{
+    h+=`<div><span class="lbl">올바른 표현</span><div class="right">${esc(cur.right)}</div></div>
+    <div class="ex"><p>${esc(cur.example)}</p>${spkBtn(cur.example)}</div></div>
+    <div class="row"><button class="btn bad" id="no">헷갈려요</button><button class="btn good" id="yes">알았어요</button></div>`;
+    h+='';
+  }
+  return h+'</div>';
+}
+
+/* ---------- answers ---------- */
+function ansTags(){return['전체',...new Set(D.answers.map(a=>tagOf(a.question)))]}
+function rAnswers(){
+  if(openAns!==null)return rAnswer(D.answers[openAns]);
+  const list=D.answers.map((a,i)=>({a,i})).filter(({a})=>S.af==='전체'||tagOf(a.question)===S.af);
+  const doneN=D.answers.filter((a,i)=>S.done[i]).length;
+  return `<div class="stack">
+  <div class="row" style="justify-content:space-between;align-items:baseline"><h2>문제를 골라 말해 보세요</h2><span class="stat">${doneN}/${D.answers.length} 연습함</span></div>
+  <div class="chips">${ansTags().map(t=>`<button class="chip" data-af="${esc(t)}" aria-pressed="${S.af===t}">${esc(t)}</button>`).join('')}</div>
+  <div class="list">${list.map(({a,i})=>`<button class="item" data-open="${i}"><span class="tag">${esc(tagOf(a.question))}</span><span class="t"><div>${esc(titleOf(a.question))}</div></span>${S.done[i]?`<span class="done">✓ ${S.done[i]}회</span>`:''}</button>`).join('')}</div></div>`;
+}
+const norm=w=>w.toLowerCase().replace(/[^a-z0-9']/g,'');
+function markModel(text,att){
+  const have=new Set(att.split(/\s+/).map(norm).filter(Boolean));
+  let tot=0,hit=0;
+  const out=text.split(/(\s+)/).map(tok=>{const n=norm(tok);if(!n)return esc(tok);tot++;if(have.has(n)){hit++;return esc(tok)}return `<span class="miss">${esc(tok)}</span>`}).join('');
+  return{html:out,pct:tot?Math.round(hit/tot*100):0};
+}
+function rAnswer(a){
+  const i=openAns, showModel=a._show;
+  let h=`<div class="stack">
+  <button class="back" id="back">← 문제 목록</button>
+  <div class="card stack"><span class="tag" style="align-self:flex-start">${esc(tagOf(a.question))}</span><div class="q">${esc(titleOf(a.question))}</div></div>
+  <div class="stack"><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">1. 내 답변 말하기</span>
+  ${dict?`<button class="btn ${listening?'bad':'primary'}" id="mic" style="flex:none;min-height:40px;padding:8px 14px">${listening?'<span class="mic"><span class="dot"></span>멈추기</span>':'🎙 말하기'}</button>`:''}</div>
+  <textarea id="att" placeholder="${dict?'말하기 버튼을 누르고 영어로 답해 보세요. 직접 입력해도 됩니다.':'영어로 답변을 입력하세요. (이 화면에서는 음성 입력을 쓸 수 없어요)'}">${esc(attempt)}</textarea></div>
+  <button class="btn primary" id="show">${showModel?'다시 비교하기':'2. 교정 답변과 비교하기'}</button>`;
+  if(showModel){
+    const m=markModel(a.corrected,attempt);
+    h+=`<div class="card stack">
+      <div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">교정 답변</span>${spkBtn(a.corrected)}</div>
+      ${attempt.trim()?`<div class="cover">교정 답변 단어 중 <b>${m.pct}%</b>를 썼어요. <span class="miss" style="background:var(--pen-soft);color:var(--pen);padding:0 4px;border-radius:3px">빨간 단어</span>는 빠진 표현입니다.</div>`:''}
+      <div class="model">${attempt.trim()?m.html:esc(a.corrected)}</div>
+      <div class="tips"><b>포인트</b> · ${esc(a.tips)}</div>
+      <details><summary>예전에 한 답변 보기</summary><p class="old">${esc(a.my_answer)}</p></details>
+    </div>
+    <button class="btn good" id="markdone">연습 완료 ${S.done[i]?`(${S.done[i]}회 했음)`:''}</button>`;
+  }
+  return h+'</div>';
+}
+
+/* ---------- list ---------- */
+const PROMPT=`오늘 교정해 준 어휘와 답변을 아래 JSON 형식으로만 정리해 줘. 다른 설명은 빼고 JSON만 줘.
+{"vocab":[{"wrong":"내가 쓴 표현","right":"교정된 표현","meaning":"뜻","example":"예문"}],
+"answers":[{"question":"[유형] 문제","my_answer":"내 답변","corrected":"교정된 답변","tips":"포인트"}]}`;
+let adding=false,addMsg='';
+function rAdd(){
+  return `<div class="stack"><button class="back" id="addback">← 전체 목록</button>
+  <div class="card stack"><span class="lbl">1단계</span><div>SPA 공부하던 Claude 채팅에 아래 문장을 보내세요.</div>
+  <div class="ex"><p style="font-size:.85rem;white-space:pre-wrap">${esc(PROMPT)}</p></div>
+  <button class="btn" id="copyp">문장 복사</button></div>
+  <div class="card stack"><span class="lbl">2단계</span><div>받은 JSON을 붙여 넣고 추가를 누르세요.</div>
+  <textarea id="imp" placeholder='{"vocab":[...],"answers":[...]}'></textarea>
+  ${addMsg?`<p style="margin:0">${addMsg}</p>`:''}
+  <button class="btn primary" id="doimp">추가하기</button></div>
+  <p class="note">추가한 자료는 이 폰에만 저장됩니다. 지금까지 직접 추가한 자료: 어휘 ${extra().vocab.length}개, 답변 ${extra().answers.length}개</p></div>`;
+}
+function extra(){try{const x=JSON.parse(localStorage.getItem('spa-extra')||'null');if(x&&Array.isArray(x.vocab)&&Array.isArray(x.answers))return x}catch(e){}return{vocab:[],answers:[]}}
+const akey=a=>a.question+'|'+a.my_answer;
+function mergeInto(base,add){
+  const vs=new Set(base.vocab.map(vid)),as=new Set(base.answers.map(akey));let nv=0,na=0;
+  for(const v of add.vocab||[]){if(v&&v.wrong&&v.right&&!vs.has(vid(v))){base.vocab.push({wrong:String(v.wrong),right:String(v.right),meaning:String(v.meaning||''),example:String(v.example||'')});vs.add(vid(v));nv++}}
+  for(const a of add.answers||[]){if(a&&a.question&&a.corrected&&!as.has(akey(a))){base.answers.push({question:String(a.question),my_answer:String(a.my_answer||''),corrected:String(a.corrected),tips:String(a.tips||'')});as.add(akey(a));na++}}
+  return[nv,na];
+}
+function doImport(text){
+  let j;try{const m=text.match(/\{[\s\S]*\}/);j=JSON.parse(m?m[0]:text)}catch(e){addMsg='<span style="color:var(--pen)">JSON 형식이 아니에요. 중괄호 { } 부분 전체를 붙여 넣었는지 확인해 주세요.</span>';return}
+  if(!Array.isArray(j.vocab)&&!Array.isArray(j.answers)){addMsg='<span style="color:var(--pen)">vocab 또는 answers 목록을 찾지 못했어요.</span>';return}
+  const [nv,na]=mergeInto(D,j);
+  const ex=extra();mergeInto(ex,j);try{localStorage.setItem('spa-extra',JSON.stringify(ex))}catch(e){}
+  addMsg=`<span style="color:var(--ok)">어휘 ${nv}개, 답변 ${na}개를 추가했어요.</span>${(nv+na)===0?' (이미 있는 내용은 건너뜁니다)':''}`;
+}
+function rList(){
+  const k=q.trim().toLowerCase();
+  const v=D.vocab.filter(x=>!k||(x.wrong+x.right+x.meaning+x.example).toLowerCase().includes(k));
+  if(adding)return rAdd();
+  return `<div class="stack"><button class="btn" id="add">+ 새 교정 자료 추가</button><input class="search" id="q" type="search" placeholder="표현이나 뜻으로 검색 (예: 수동태, tend)" value="${esc(q)}">
+  <span class="stat">${v.length}개</span>
+  <div class="list">${v.map(x=>`<div class="v-row"><div class="w wrong">${esc(x.wrong)}</div><div class="r">${esc(x.right)}</div><div class="m">${esc(x.meaning)}</div></div>`).join('')||'<p class="empty">찾는 표현이 없어요.</p>'}</div></div>`;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const app=document.getElementById('app');
+  app.innerHTML=S.tab==='cards'?rCards():S.tab==='answers'?rAnswers():rList();
+  document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===S.tab?'page':'false'));
+  const learned=D.vocab.filter(v=>box(v)===3).length;
+  document.getElementById('hstat').textContent=`외움 ${learned}/${D.vocab.length}`;
+  const ta=document.getElementById('att');if(ta)ta.addEventListener('input',e=>{attempt=e.target.value});
+  const qi=document.getElementById('q');if(qi)qi.addEventListener('input',e=>{q=e.target.value;const pos=e.target.selectionStart;render();const n=document.getElementById('q');n.focus();n.setSelectionRange(pos,pos)});
+}
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.say){speak(t.dataset.say,t);return}
+  if(t.dataset.tab){adding=false;S.tab=t.dataset.tab;save();window.scrollTo(0,0);render();return}
+  if(t.dataset.vf){S.vf=t.dataset.vf;save();pickCard();render();return}
+  if(t.dataset.af){S.af=t.dataset.af;save();render();return}
+  if(t.dataset.open!==undefined){openAns=+t.dataset.open;attempt='';D.answers[openAns]._show=false;window.scrollTo(0,0);render();return}
+  switch(t.id){
+    case'reveal':revealed=true;render();break;
+    case'yes':S.box[vid(cur)]=Math.min(3,box(cur)+1);save();pickCard();render();break;
+    case'no':S.box[vid(cur)]=1;save();pickCard();render();break;
+    case'back':stopMic();openAns=null;render();break;
+    case'show':stopMic();D.answers[openAns]._show=true;render();break;
+    case'add':adding=true;addMsg='';window.scrollTo(0,0);render();break;
+    case'addback':adding=false;render();break;
+    case'doimp':doImport(document.getElementById('imp').value);render();break;
+    case'copyp':try{await navigator.clipboard.writeText(PROMPT);t.textContent='복사했어요'}catch(e){t.textContent='길게 눌러 직접 복사해 주세요'}break;
+    case'markdone':S.done[openAns]=(S.done[openAns]||0)+1;save();render();break;
+    case'mic':
+      if(listening){stopMic();break}
+      try{const p=dict.start();listening=true;render();await p}catch(err){listening=false;if(err&&err.code==='not_granted')dict=null;render()}
+      break;
+  }
+});
+function stopMic(){if(dict&&listening){try{dict.stop()}catch(e){}}listening=false}
+
+/* ---------- boot ---------- */
+load();
+/* ---------- encrypted data (AES-GCM, key from password via PBKDF2) ---------- */
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+let ENC=null;
+async function keyFrom(pw){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(ENC.salt),iterations:ENC.iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);
+}
+async function unlock(key){
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(ENC.iv)},key,b64(ENC.ct));
+  D=JSON.parse(new TextDecoder().decode(pt));mergeInto(D,extra());render();
+}
+function lockScreen(msg){
+  document.getElementById('app').innerHTML=`<form class="card stack" id="lock" style="margin-top:24px">
+    <h2>비밀번호를 입력하세요</h2><p class="note" style="margin:0">처음 한 번만 입력하면 이 기기에서 기억합니다.</p>
+    <input class="search" id="pw" type="password" autocomplete="current-password" placeholder="비밀번호">
+    ${msg?`<p style="margin:0;color:var(--pen)">${msg}</p>`:''}
+    <button class="btn primary" type="submit">열기</button></form>`;
+  document.getElementById('lock').addEventListener('submit',async e=>{
+    e.preventDefault();
+    try{const k=await keyFrom(document.getElementById('pw').value);await unlock(k);
+      try{localStorage.setItem('spa-key',JSON.stringify(await crypto.subtle.exportKey('jwk',k)))}catch(e){}}
+    catch(err){lockScreen('비밀번호가 맞지 않아요. 다시 입력해 주세요.')}
+  });
+}
+fetch('data.enc.json').then(r=>r.json()).then(async enc=>{
+  ENC=enc;
+  try{const j=JSON.parse(localStorage.getItem('spa-key')||'null');
+    if(j){const k=await crypto.subtle.importKey('jwk',j,{name:'AES-GCM'},true,['decrypt']);await unlock(k);return}}catch(e){}
+  lockScreen();
+}).catch(()=>{document.getElementById('app').innerHTML='<p class="empty">자료를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 보세요.</p>'});
+(()=>{
+  /* iOS/Chrome speech recognition (optional) */
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  let rec=null,base='';
+  dict={
+    start(){return new Promise((res,rej)=>{
+      rec=new SR();rec.lang='en-US';rec.continuous=true;rec.interimResults=true;
+      base=attempt?attempt.trim()+' ':'';
+      rec.onresult=ev=>{let fin='',part='';for(const r of ev.results){if(r.isFinal)fin+=r[0].transcript+' ';else part+=r[0].transcript}
+        attempt=(base+fin).replace(/\s+/g,' ');const ta=document.getElementById('att');if(ta)ta.value=(attempt+' '+part).trim()};
+      rec.onerror=ev=>{listening=false;render();if(ev.error==='not-allowed'){dict=null;render();rej({code:'not_granted'})}else res()};
+      rec.onend=()=>{listening=false;render();res()};
+      try{rec.start()}catch(e){rej(e)}
+    })},
+    stop(){try{rec&&rec.stop()}catch(e){}}
+  };
+  render();
+})();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+</script>
+
+</body>
+</html>
