@@ -136,6 +136,11 @@ nav button[aria-current="page"]{color:var(--ink);font-weight:600}
 .btn.ghost{background:transparent;border-style:dashed;font-weight:500;color:var(--muted)}
 .undo{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.85rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .undo span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.undo button{border:0;background:none;color:var(--ink);font-weight:600;flex:none}
+.stpick{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.stpick button{border:0;background:transparent;border-radius:8px;padding:7px 2px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.stpick button[aria-pressed="true"]{font-weight:700;background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+.stpick .sp-hard[aria-pressed="true"]{color:var(--pen);background:var(--pen-soft)}.stpick .sp-learning[aria-pressed="true"]{background:var(--mark);color:var(--fg)}.stpick .sp-known[aria-pressed="true"]{color:var(--ok);background:var(--ok-soft)}
+.v-row .stpick{margin-top:8px}
 .empty{text-align:center;color:var(--muted);padding:32px 8px}
 .note{font-size:.85rem;color:var(--muted)}
 </style>
@@ -208,12 +213,13 @@ function rCards(){
   <div class="boxes">${['new','hard','learning','known'].map(k=>`<button class="boxb${S.vf===k?' on':''}" data-vf="${k}"><b>${c[k]}</b><span>${ST[k]}</span></button>`).join('')}</div>
   <div class="prog" aria-label="외운 비율 ${pct}%"><i style="width:${pct}%"></i></div>
   <div class="chips">${f.map(([k,l,n])=>`<button class="chip" data-vf="${k}" aria-pressed="${S.vf===k}">${l} ${n}</button>`).join('')}</div>
-  ${lastAct?`<div class="undo"><span>‘${esc(lastAct.word)}’ → ${ST[lastAct.to]}</span><button id="undo">되돌리기</button></div>`:''}`;
-  if(!cur||!vocabPool().includes(cur))pickCard();
+  ${lastAct?`<div class="undo"><span>‘${esc(lastAct.word)}’ → ${ST[lastAct.to]||lastAct.to}</span><button id="undo">되돌리기</button></div>`:''}`;
+  if(!cur||(!vocabPool().includes(cur)&&pinned!==cur.id))pickCard();
   if(!cur){h+=`<div class="card empty">이 묶음에 남은 카드가 없어요.<br>다른 분류를 골라 보세요.</div></div>`;return h}
   const s=stOf(cur);
   h+=`<div class="card stack">
     <div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">내가 한 실수</span><span class="tag st-${s}">${stLabel(cur)}</span></div>
+    ${stPicker(cur)}
     <div class="wrong meaning">${esc(cur.wrong)}</div>
     <div><span class="lbl">뜻</span><div class="meaning">${esc(cur.meaning)}</div></div>`;
   if(!revealed){h+=`<button class="reveal" id="reveal">올바른 표현을 떠올린 뒤 눌러 확인</button></div>`}
@@ -228,7 +234,13 @@ function rCards(){
   }
   return h+'</div>';
 }
-function answerCard(kind){
+let pinned=null;
+function stPicker(v){const s=stOf(v);return `<div class="stpick" role="group" aria-label="분류 바꾸기">${['new','hard','learning','known'].map(k=>`<button data-setst="${k}" data-id="${esc(v.id)}" aria-pressed="${s===k}" class="sp-${k}">${ST[k]}</button>`).join('')}</div>`}
+function setStatus(v,k){
+  if(k==='new'){lastAct={id:v.id,prev:S.card[v.id]?{...S.card[v.id]}:null,word:v.right,to:'new'};delete S.card[v.id];save();return}
+  setCard(v,k,k==='known'?NEED:k==='learning'?Math.max(1,Math.min(NEED-1,nOf(v))):0);
+}
+function answerCard(kind){pinned=null;
   const v=cur;if(!v)return;
   if(kind==='no')setCard(v,'hard',0);
   else if(kind==='known'||kind==='keep')setCard(v,'known',NEED);
@@ -320,13 +332,13 @@ function rAnswer(g){
   return h+'</div>';
 }
 function tipBlock(t){const x=tipText(t);return x?`<div class="tips"><b>포인트</b> · ${esc(x)}</div>`:''}
-function vrow(x){return `<div class="v-row"><div class="w wrong">${esc(x.wrong)}</div><div class="r">${esc(x.right)}</div><div class="m">${esc(x.meaning)}</div>${x.example?`<div class="exs">${esc(x.example)}</div>`:''}</div>`}
+function vrow(x,pick){return `<div class="v-row">${pick?`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="tag st-${stOf(x)}">${stLabel(x)}</span></div>`:''}<div class="w wrong">${esc(x.wrong)}</div><div class="r">${esc(x.right)}</div><div class="m">${esc(x.meaning)}</div>${x.example?`<div class="exs">${esc(x.example)}</div>`:''}${pick?stPicker(x):''}</div>`}
 
 /* ---------- list ---------- */
 const PROMPT=`오늘 교정해 준 어휘와 답변을 아래 JSON 형식으로만 정리해 줘. 다른 설명은 빼고 JSON만 줘.
 {"vocab":[{"wrong":"내가 쓴 표현","right":"교정된 표현","meaning":"뜻","example":"예문"}],
 "answers":[{"question":"[유형] 문제","my_answer":"내 답변","corrected":"교정된 답변","tips":"포인트"}]}`;
-let adding=false,addMsg='';
+let adding=false,addMsg='',lf='all';
 function rAdd(){
   return `<div class="stack"><button class="back" id="addback">← 전체 목록</button>
   <div class="card stack"><span class="lbl">교정 자료 추가</span><div>채팅에서 받은 JSON을 <b>복사</b>한 뒤 아래 버튼을 누르세요.</div>
@@ -391,11 +403,12 @@ function doImport(text){importTexts([{text,src:'직접 붙여 넣기'}])}
 
 function rList(){
   const k=q.trim().toLowerCase();
-  const v=D.vocab.filter(x=>!k||(x.wrong+x.right+x.meaning+x.example).toLowerCase().includes(k));
+  const v=D.vocab.filter(x=>(!k||(x.wrong+x.right+x.meaning+x.example).toLowerCase().includes(k))&&(lf==='all'||stOf(x)===lf));
   if(adding)return rAdd();
   return `<div class="stack"><button class="btn" id="add">+ 새 교정 자료 추가</button><input class="search" id="q" type="search" placeholder="표현이나 뜻으로 검색 (예: 수동태, tend)" value="${esc(q)}">
-  <span class="stat">${v.length}개</span>
-  <div class="list">${v.map(x=>vrow(x)).join('')||'<p class="empty">찾는 표현이 없어요.</p>'}</div></div>`;
+  <div class="chips">${[['all','전체'],['new','새 카드'],['hard','헷갈림'],['learning','익히는 중'],['known','외움']].map(([k2,l])=>`<button class="chip" data-lf="${k2}" aria-pressed="${lf===k2}">${l}</button>`).join('')}</div>
+  <span class="stat">${v.length}개 · 아래 버튼으로 분류를 바꿀 수 있어요</span>
+  <div class="list">${v.map(x=>vrow(x,true)).join('')||'<p class="empty">찾는 표현이 없어요.</p>'}</div></div>`;
 }
 
 /* ---------- render ---------- */
@@ -415,10 +428,12 @@ document.addEventListener('click',async e=>{
   if(t.dataset.vf){S.vf=t.dataset.vf;lastAct=null;save();pickCard();render();return}
   if(t.dataset.af){S.af=t.dataset.af;save();render();return}
   if(t.dataset.open!==undefined){openAns=t.dataset.open;sec='practice';attempt='';const g=groups().find(x=>x.key===openAns);if(g)g.latest.a._show=false;window.scrollTo(0,0);render();return}
+  if(t.dataset.setst){const v=D.vocab.find(x=>x.id===t.dataset.id);if(v){setStatus(v,t.dataset.setst);if(S.tab==='cards'&&cur&&cur.id===v.id)pinned=v.id}render();return}
+  if(t.dataset.lf){lf=t.dataset.lf;render();return}
   if(t.dataset.sec){stopMic();sec=t.dataset.sec;render();return}
   if(t.dataset.jump!==undefined){S.tab='answers';S.af='전체';openAns=t.dataset.jump;sec='history';attempt='';save();window.scrollTo(0,0);render();return}
   switch(t.id){
-    case'reveal':revealed=true;render();break;
+    case'reveal':pinned=pinned&&cur&&pinned===cur.id?pinned:null;revealed=true;render();break;
     case'yes':answerCard('yes');break;
     case'keep':answerCard('keep');break;
     case'known':answerCard('known');break;
@@ -499,7 +514,7 @@ fetch('data.enc.json').then(r=>r.json()).then(async enc=>{
   };
   render();
 })();
-const APP_VERSION='v8 (11/21)';
+const APP_VERSION='v9 (11/21)';
 if('serviceWorker' in navigator){
   const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});
