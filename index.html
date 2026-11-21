@@ -217,6 +217,7 @@ function rAnswer(a){
       <div class="model">${attempt.trim()?m.html:esc(a.corrected)}</div>
       <div class="tips"><b>포인트</b> · ${esc(a.tips)}</div>
       <details><summary>예전에 한 답변 보기</summary><p class="old">${esc(a.my_answer)}</p></details>
+      ${(a.prev&&a.prev.length)?`<details><summary>이전 교정 답변 보기 (${a.prev.length}개)</summary>${a.prev.slice().reverse().map(t=>`<p class="old">${esc(t)}</p>`).join('')}</details>`:''}
     </div>
     <button class="btn good" id="markdone">연습 완료 ${S.done[i]?`(${S.done[i]}회 했음)`:''}</button>`;
   }
@@ -247,7 +248,7 @@ function rLog(){
   const l=getLog().slice().reverse();
   const row=(title,sub,cnt)=>`<div class="v-row"><div class="r" style="font-variant-numeric:tabular-nums">${title}</div><div class="m">${sub}</div><div class="w">${cnt}</div></div>`;
   return `<div class="card stack"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="lbl">업데이트 기록</span><span class="stat">마지막 ${fmtDate(lastUpdate())}</span></div>
-  <div class="list">${l.map(x=>row(fmtDate(x.at)+' 추가',esc(x.src)+(x.fileDate?` · 파일 생성 ${fmtDate(x.fileDate)}`:''),`어휘 +${x.nv} · 답변 +${x.na}`)).join('')}
+  <div class="list">${l.map(x=>row(fmtDate(x.at)+' 추가',esc(x.src)+(x.fileDate?` · 파일 생성 ${fmtDate(x.fileDate)}`:''),`어휘 +${x.nv} · 답변 +${x.na}${x.nu?` · 수정 ${x.nu}`:''}`)).join('')}
   ${row(fmtDate(ENC&&ENC.updated)+' 기본 자료',ENC&&ENC.updated?'앱에 들어 있는 자료 (모든 기기 공통)':'앱에 들어 있는 자료',`어휘 ${baseN.v}개 · 답변 ${baseN.a}개`)}</div>
   <p class="note" style="margin:0">직접 추가한 자료는 이 폰에만 저장됩니다. · 앱 버전 ${APP_VERSION}</p></div>`;
 }
@@ -255,20 +256,27 @@ let baseN={v:0,a:0};
 function extra(){try{const x=JSON.parse(localStorage.getItem('spa-extra')||'null');if(x&&Array.isArray(x.vocab)&&Array.isArray(x.answers))return x}catch(e){}return{vocab:[],answers:[]}}
 const akey=a=>a.question+'|'+a.my_answer;
 function mergeInto(base,add){
-  const vs=new Set(base.vocab.map(vid)),as=new Set(base.answers.map(akey));let nv=0,na=0;
-  for(const v of add.vocab||[]){if(v&&v.wrong&&v.right&&!vs.has(vid(v))){base.vocab.push({wrong:String(v.wrong),right:String(v.right),meaning:String(v.meaning||''),example:String(v.example||'')});vs.add(vid(v));nv++}}
-  for(const a of add.answers||[]){if(a&&a.question&&a.corrected&&!as.has(akey(a))){base.answers.push({question:String(a.question),my_answer:String(a.my_answer||''),corrected:String(a.corrected),tips:String(a.tips||'')});as.add(akey(a));na++}}
-  return[nv,na];
+  const vm=new Map(base.vocab.map(v=>[vid(v),v])),am=new Map(base.answers.map(a=>[akey(a),a]));let nv=0,na=0,nu=0;
+  for(const v of add.vocab||[]){if(!(v&&v.wrong&&v.right))continue;const ex=vm.get(vid(v));
+    if(!ex){const o={wrong:String(v.wrong),right:String(v.right),meaning:String(v.meaning||''),example:String(v.example||'')};base.vocab.push(o);vm.set(vid(o),o);nv++;continue}
+    let ch=false;for(const f of['meaning','example']){if(v[f]&&String(v[f])!==ex[f]){ex[f]=String(v[f]);ch=true}}if(ch)nu++}
+  for(const a of add.answers||[]){if(!(a&&a.question&&a.corrected))continue;const ex=am.get(akey(a));
+    if(!ex){const o={question:String(a.question),my_answer:String(a.my_answer||''),corrected:String(a.corrected),tips:String(a.tips||''),prev:Array.isArray(a.prev)?a.prev.map(String):[]};base.answers.push(o);am.set(akey(o),o);na++;continue}
+    let ch=false;
+    if(String(a.corrected)!==ex.corrected){ex.prev=[...new Set([...(ex.prev||[]),ex.corrected,...(Array.isArray(a.prev)?a.prev:[])])].filter(x=>x!==String(a.corrected));ex.corrected=String(a.corrected);ch=true}
+    if(a.tips&&String(a.tips)!==ex.tips){ex.tips=String(a.tips);ch=true}
+    if(ch)nu++}
+  return[nv,na,nu];
 }
 function parseImp(text){const m=String(text).match(/\{[\s\S]*\}/);const j=JSON.parse(m?m[0]:text);if(!Array.isArray(j.vocab)&&!Array.isArray(j.answers))throw 0;return j}
 function importTexts(items){
-  let nv=0,na=0,bad=0;const log=getLog();
+  let nv=0,na=0,nu=0,bad=0;const log=getLog();
   for(const it of items){let j;try{j=parseImp(it.text)}catch(e){bad++;continue}
-    const r=mergeInto(D,j);nv+=r[0];na+=r[1];const ex=extra();mergeInto(ex,j);
-    log.push({at:new Date().toISOString(),src:it.src,fileDate:it.fileDate||null,nv:r[0],na:r[1]});
+    const r=mergeInto(D,j);nv+=r[0];na+=r[1];nu+=r[2];const ex=extra();mergeInto(ex,j);
+    log.push({at:new Date().toISOString(),src:it.src,fileDate:it.fileDate||null,nv:r[0],na:r[1],nu:r[2]});
     try{localStorage.setItem('spa-extra',JSON.stringify(ex));localStorage.setItem('spa-log',JSON.stringify(log.slice(-50)))}catch(e){}}
   if(bad&&bad===items.length){addMsg='<span style="color:var(--pen)">교정 자료 JSON을 찾지 못했어요. Claude가 준 JSON 전체를 복사했는지 확인해 주세요.</span>';return}
-  addMsg=`<span style="color:var(--ok)">어휘 ${nv}개, 답변 ${na}개를 추가했어요.</span>${(nv+na)===0?' 이미 있는 내용은 건너뜁니다.':''}${bad?` (읽지 못한 파일 ${bad}개)`:''}`;
+  addMsg=`<span style="color:var(--ok)">어휘 ${nv}개, 답변 ${na}개를 추가하고, ${nu}개를 새 교정으로 고쳤어요.</span>${(nv+na+nu)===0?' 바뀐 내용이 없어요.':''}${bad?` (읽지 못한 파일 ${bad}개)`:''}`;
 }
 function doImport(text){importTexts([{text,src:'직접 붙여 넣기'}])}
 
@@ -377,7 +385,7 @@ fetch('data.enc.json').then(r=>r.json()).then(async enc=>{
   };
   render();
 })();
-const APP_VERSION='v5 (11/21)';
+const APP_VERSION='v6 (11/21)';
 if('serviceWorker' in navigator){
   const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});
