@@ -60,7 +60,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,.item:focus-visi
 .chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:.88rem;white-space:nowrap}
 .chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
-.wrong{color:var(--pen);text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb,var(--pen) 70%,transparent)}
+.wrong{color:var(--pen)}
 .right{color:var(--fg);font-weight:700;font-size:1.3rem;line-height:1.35}
 .meaning{font-size:1.05rem}
 .ex{background:var(--ink-soft);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
@@ -129,8 +129,8 @@ function load(){try{const s=JSON.parse(localStorage.getItem('spa-state')||'null'
 function save(){try{localStorage.setItem('spa-state',JSON.stringify(S))}catch(e){}}
 const vid=v=>v.wrong+'→'+v.right;
 const box=v=>S.box[vid(v)]||0;
-function tagOf(q){const m=q.match(/^\[([^\]]+)\]/);if(!m)return'기타';const t=m[1];const tm=t.match(/^Test \d+/);return tm?tm[0]:t}
 const titleOf=q=>q.replace(/^\[[^\]]+\]\s*/,'');
+function tagOf(q){if(/^summari[sz]e\b/i.test(titleOf(q)))return'요약';const m=q.match(/^\[([^\]]+)\]/);if(!m)return'기타';const t=m[1];const tm=t.match(/^Test \d+/);return tm?tm[0]:t}
 
 /* ---------- speech ---------- */
 async function speak(text,btn){
