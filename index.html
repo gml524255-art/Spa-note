@@ -249,7 +249,7 @@ function rLog(){
   return `<div class="card stack"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="lbl">업데이트 기록</span><span class="stat">마지막 ${fmtDate(lastUpdate())}</span></div>
   <div class="list">${l.map(x=>row(fmtDate(x.at)+' 추가',esc(x.src)+(x.fileDate?` · 파일 생성 ${fmtDate(x.fileDate)}`:''),`어휘 +${x.nv} · 답변 +${x.na}`)).join('')}
   ${row(fmtDate(ENC&&ENC.updated)+' 기본 자료',ENC&&ENC.updated?'앱에 들어 있는 자료 (모든 기기 공통)':'앱에 들어 있는 자료',`어휘 ${baseN.v}개 · 답변 ${baseN.a}개`)}</div>
-  <p class="note" style="margin:0">직접 추가한 자료는 이 폰에만 저장됩니다.</p></div>`;
+  <p class="note" style="margin:0">직접 추가한 자료는 이 폰에만 저장됩니다. · 앱 버전 ${APP_VERSION}</p></div>`;
 }
 let baseN={v:0,a:0};
 function extra(){try{const x=JSON.parse(localStorage.getItem('spa-extra')||'null');if(x&&Array.isArray(x.vocab)&&Array.isArray(x.answers))return x}catch(e){}return{vocab:[],answers:[]}}
@@ -377,7 +377,13 @@ fetch('data.enc.json').then(r=>r.json()).then(async enc=>{
   };
   render();
 })();
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+const APP_VERSION='v5 (11/21)';
+if('serviceWorker' in navigator){
+  const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{})});
+}
 </script>
 
 </body>
