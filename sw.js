@@ -1,5 +1,5 @@
 // Offline cache: app shell + data. Bump VERSION when data.json or index.html changes.
-const VERSION = 'spa-v3';
+const VERSION = 'spa-v4';
 const FILES = ['./', 'index.html', 'data.enc.json', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -230,10 +230,7 @@ const PROMPT=`오늘 교정해 준 어휘와 답변을 아래 JSON 형식으로�
 let adding=false,addMsg='';
 function rAdd(){
   return `<div class="stack"><button class="back" id="addback">← 전체 목록</button>
-  <div class="card stack"><span class="lbl">1단계</span><div>SPA 공부하던 Claude 채팅에 아래 문장을 보내세요.</div>
-  <div class="ex"><p style="font-size:.85rem;white-space:pre-wrap">${esc(PROMPT)}</p></div>
-  <button class="btn" id="copyp">문장 복사</button></div>
-  <div class="card stack"><span class="lbl">2단계</span><div>받은 JSON을 <b>복사</b>한 뒤 아래 버튼을 누르세요.</div>
+  <div class="card stack"><span class="lbl">교정 자료 추가</span><div>채팅에서 받은 JSON을 <b>복사</b>한 뒤 아래 버튼을 누르세요.</div>
   <button class="btn primary" id="clip">📋 복사한 내용 바로 추가</button>
   <label class="btn" for="impfile" style="text-align:center">📄 JSON 파일 선택해서 추가</label>
   <input id="impfile" type="file" accept=".json,.txt,application/json,text/plain" multiple hidden>
@@ -241,8 +238,20 @@ function rAdd(){
   <details><summary>직접 붙여 넣기</summary><div class="stack" style="margin-top:10px">
   <textarea id="imp" placeholder='{"vocab":[...],"answers":[...]}'></textarea>
   <button class="btn" id="doimp">추가하기</button></div></details></div>
-  <p class="note">추가한 자료는 이 폰에만 저장됩니다. 지금까지 직접 추가한 자료: 어휘 ${extra().vocab.length}개, 답변 ${extra().answers.length}개</p></div>`;
+  ${rLog()}</div>`;
 }
+function fmtDate(t){if(!t)return'-';const d=new Date(t);if(isNaN(d))return'-';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+function getLog(){try{const l=JSON.parse(localStorage.getItem('spa-log')||'[]');return Array.isArray(l)?l:[]}catch(e){return[]}}
+function lastUpdate(){const l=getLog();const t=[ENC&&ENC.updated,...l.map(x=>x.at)].filter(Boolean).sort().pop();return t}
+function rLog(){
+  const l=getLog().slice().reverse();
+  const row=(title,sub,cnt)=>`<div class="v-row"><div class="r" style="font-variant-numeric:tabular-nums">${title}</div><div class="m">${sub}</div><div class="w">${cnt}</div></div>`;
+  return `<div class="card stack"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="lbl">업데이트 기록</span><span class="stat">마지막 ${fmtDate(lastUpdate())}</span></div>
+  <div class="list">${l.map(x=>row(fmtDate(x.at)+' 추가',esc(x.src)+(x.fileDate?` · 파일 생성 ${fmtDate(x.fileDate)}`:''),`어휘 +${x.nv} · 답변 +${x.na}`)).join('')}
+  ${row(fmtDate(ENC&&ENC.updated)+' 기본 자료',ENC&&ENC.updated?'앱에 들어 있는 자료 (모든 기기 공통)':'앱에 들어 있는 자료',`어휘 ${baseN.v}개 · 답변 ${baseN.a}개`)}</div>
+  <p class="note" style="margin:0">직접 추가한 자료는 이 폰에만 저장됩니다.</p></div>`;
+}
+let baseN={v:0,a:0};
 function extra(){try{const x=JSON.parse(localStorage.getItem('spa-extra')||'null');if(x&&Array.isArray(x.vocab)&&Array.isArray(x.answers))return x}catch(e){}return{vocab:[],answers:[]}}
 const akey=a=>a.question+'|'+a.my_answer;
 function mergeInto(base,add){
@@ -252,14 +261,16 @@ function mergeInto(base,add){
   return[nv,na];
 }
 function parseImp(text){const m=String(text).match(/\{[\s\S]*\}/);const j=JSON.parse(m?m[0]:text);if(!Array.isArray(j.vocab)&&!Array.isArray(j.answers))throw 0;return j}
-function importTexts(texts){
-  let nv=0,na=0,bad=0;
-  for(const t of texts){let j;try{j=parseImp(t)}catch(e){bad++;continue}
-    const r=mergeInto(D,j);nv+=r[0];na+=r[1];const ex=extra();mergeInto(ex,j);try{localStorage.setItem('spa-extra',JSON.stringify(ex))}catch(e){}}
-  if(bad&&bad===texts.length){addMsg='<span style="color:var(--pen)">교정 자료 JSON을 찾지 못했어요. Claude가 준 JSON 전체를 복사했는지 확인해 주세요.</span>';return}
+function importTexts(items){
+  let nv=0,na=0,bad=0;const log=getLog();
+  for(const it of items){let j;try{j=parseImp(it.text)}catch(e){bad++;continue}
+    const r=mergeInto(D,j);nv+=r[0];na+=r[1];const ex=extra();mergeInto(ex,j);
+    log.push({at:new Date().toISOString(),src:it.src,fileDate:it.fileDate||null,nv:r[0],na:r[1]});
+    try{localStorage.setItem('spa-extra',JSON.stringify(ex));localStorage.setItem('spa-log',JSON.stringify(log.slice(-50)))}catch(e){}}
+  if(bad&&bad===items.length){addMsg='<span style="color:var(--pen)">교정 자료 JSON을 찾지 못했어요. Claude가 준 JSON 전체를 복사했는지 확인해 주세요.</span>';return}
   addMsg=`<span style="color:var(--ok)">어휘 ${nv}개, 답변 ${na}개를 추가했어요.</span>${(nv+na)===0?' 이미 있는 내용은 건너뜁니다.':''}${bad?` (읽지 못한 파일 ${bad}개)`:''}`;
 }
-function doImport(text){importTexts([text])}
+function doImport(text){importTexts([{text,src:'직접 붙여 넣기'}])}
 
 function rList(){
   const k=q.trim().toLowerCase();
@@ -296,12 +307,11 @@ document.addEventListener('click',async e=>{
     case'add':adding=true;addMsg='';window.scrollTo(0,0);render();break;
     case'addback':adding=false;render();break;
     case'clip':
-      try{const txt=await navigator.clipboard.readText();if(!txt.trim()){addMsg='<span style="color:var(--pen)">클립보드가 비어 있어요. JSON을 먼저 복사해 주세요.</span>'}else importTexts([txt])}
+      try{const txt=await navigator.clipboard.readText();if(!txt.trim()){addMsg='<span style="color:var(--pen)">클립보드가 비어 있어요. JSON을 먼저 복사해 주세요.</span>'}else importTexts([{text:txt,src:'복사한 내용'}])}
       catch(e){addMsg='<span style="color:var(--pen)">클립보드를 읽지 못했어요. 아래 "직접 붙여 넣기"를 써 주세요.</span>'}
       render();break;
     case'addh':adding=true;addMsg='';S.tab='list';save();window.scrollTo(0,0);render();break;
     case'doimp':doImport(document.getElementById('imp').value);render();break;
-    case'copyp':try{await navigator.clipboard.writeText(PROMPT);t.textContent='복사했어요'}catch(e){t.textContent='길게 눌러 직접 복사해 주세요'}break;
     case'markdone':S.done[openAns]=(S.done[openAns]||0)+1;save();render();break;
     case'mic':
       if(listening){stopMic();break}
@@ -314,7 +324,7 @@ function stopMic(){if(dict&&listening){try{dict.stop()}catch(e){}}listening=fals
 document.addEventListener('change',async e=>{
   if(e.target.id!=='impfile')return;
   const fs=[...e.target.files];if(!fs.length)return;
-  importTexts(await Promise.all(fs.map(f=>f.text())));render();
+  importTexts(await Promise.all(fs.map(async f=>({text:await f.text(),src:'파일 '+f.name,fileDate:f.lastModified?new Date(f.lastModified).toISOString():null}))));render();
 });
 /* ---------- boot ---------- */
 load();
@@ -327,7 +337,7 @@ async function keyFrom(pw){
 }
 async function unlock(key){
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(ENC.iv)},key,b64(ENC.ct));
-  D=JSON.parse(new TextDecoder().decode(pt));mergeInto(D,extra());render();
+  D=JSON.parse(new TextDecoder().decode(pt));baseN={v:D.vocab.length,a:D.answers.length};mergeInto(D,extra());render();
 }
 function lockScreen(msg){
   document.getElementById('app').innerHTML=`<form class="card stack" id="lock" style="margin-top:24px">
