@@ -141,6 +141,21 @@ nav button[aria-current="page"]{color:var(--ink);font-weight:600}
 .stpick button[aria-pressed="true"]{font-weight:700;background:var(--surface);box-shadow:0 0 0 1px var(--line)}
 .stpick .sp-hard[aria-pressed="true"]{color:var(--pen);background:var(--pen-soft)}.stpick .sp-learning[aria-pressed="true"]{background:var(--mark);color:var(--fg)}.stpick .sp-known[aria-pressed="true"]{color:var(--ok);background:var(--ok-soft)}
 .v-row .stpick{margin-top:8px}
+.why{display:grid;gap:8px}
+.why>div{border-radius:10px;padding:10px 12px}
+.why b{display:block;font-size:.78rem;margin-bottom:2px}
+.why p{margin:0;font-size:.92rem;line-height:1.55}
+.why-bad{background:var(--pen-soft)}.why-bad b{color:var(--pen)}
+.why-good{background:var(--ok-soft)}.why-good b{color:var(--ok)}
+.vmeta{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:.78rem;color:var(--muted)}
+.vmeta .cat{background:var(--ink-soft);color:var(--ink);border-radius:6px;padding:1px 7px;font-weight:600}
+.vmeta i{font-style:normal}
+.v-row .why,.v-row .vmeta{margin-top:8px}
+.ssteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.ssteps li{display:flex;flex-direction:column;gap:6px;padding-left:12px;border-left:3px solid var(--ink-soft)}
+.sdo{font-weight:600;font-size:.92rem;display:flex;gap:8px;align-items:center}
+.snum{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-size:.75rem;flex:none}
+.frame{font-family:var(--f-body);font-weight:500}
 .empty{text-align:center;color:var(--muted);padding:32px 8px}
 .note{font-size:.85rem;color:var(--muted)}
 </style>
@@ -204,6 +219,8 @@ function pickCard(){
   const min=Math.min(...p.map(rank));const c=p.filter(v=>rank(v)===min&&v!==cur);
   const from=c.length?c:(p.length>1?p.filter(v=>v!==cur):p);cur=from[Math.floor(Math.random()*from.length)];revealed=false;
 }
+function whyBlock(v){if(!v.why_wrong&&!v.why_better)return'';return `<div class="why">${v.why_wrong?`<div class="why-bad"><b>교정 전이 안 좋은 이유</b><p>${esc(v.why_wrong)}</p></div>`:''}${v.why_better?`<div class="why-good"><b>교정 후가 더 좋은 이유</b><p>${esc(v.why_better)}</p></div>`:''}</div>`}
+function vMeta(v){const a=[v.category,v.type,v.source].filter(Boolean);return a.length?`<div class="vmeta">${v.category?`<span class="cat">${esc(v.category)}</span>`:''}${[v.type,v.source].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('<i>·</i>')}</div>`:''}
 function srcLinks(v){const g=sourcesFor(v);return g.length?`<div><span class="lbl">이 실수가 나온 문제</span><div class="srcs">${g.map(x=>`<button class="src" data-jump="${esc(x.key)}"><span class="tag">${esc(x.tag)}</span>${esc(x.title)}</button>`).join('')}</div></div>`:''}
 function rCards(){
   const c={new:0,hard:0,learning:0,known:0};D.vocab.forEach(v=>c[stOf(v)]++);
@@ -221,10 +238,12 @@ function rCards(){
     <div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">내가 한 실수</span><span class="tag st-${s}">${stLabel(cur)}</span></div>
     ${stPicker(cur)}
     <div class="wrong meaning">${esc(cur.wrong)}</div>
-    <div><span class="lbl">뜻</span><div class="meaning">${esc(cur.meaning)}</div></div>`;
+    <div><span class="lbl">뜻</span><div class="meaning">${esc(cur.meaning)}</div></div>
+    ${vMeta(cur)}`;
   if(!revealed){h+=`<button class="reveal" id="reveal">올바른 표현을 떠올린 뒤 눌러 확인</button></div>`}
   else{
     h+=`<div><span class="lbl">올바른 표현</span><div class="right">${esc(cur.right)}</div></div>
+    ${whyBlock(cur)}
     <div class="ex"><p>${esc(cur.example)}</p>${spkBtn(cur.example)}</div>${srcLinks(cur)}</div>`;
     h+= s==='known'
       ? `<div class="row"><button class="btn bad" id="no">다시 외우기</button><button class="btn good" id="keep">계속 외움</button></div>`
@@ -249,17 +268,18 @@ function answerCard(kind){pinned=null;
 }
 
 /* ---------- answers ---------- */
-function ansTags(){return['전체',...new Set(D.answers.map(a=>tagOf(a.question)))]}
+function ansTags(){return['전체',...new Set(D.answers.map(a=>a.type||tagOf(a.question)))]}
 const tryNo=q=>{const m=q.match(/\((\d+)차\)\s*$/);return m?+m[1]:1};
+const tryOf=a=>a.attempt?+a.attempt:tryOf(a);
 const baseTitle=q=>titleOf(q).replace(/\s*\(\d+차\)\s*$/,'');
 function gkey(q){const m=q.match(/^\[([^\]]+)\]/);const b=m?m[1]:'';return /^Test \d+ Q/.test(b)?b:b+'|'+baseTitle(q)}
 function groups(){
   const g=new Map();
-  D.answers.forEach((a,i)=>{const k=gkey(a.question);if(!g.has(k))g.set(k,{key:k,items:[]});g.get(k).items.push({a,i})});
+  D.answers.forEach((a,i)=>{const k=a.source?'src|'+a.source:gkey(a.question);if(!g.has(k))g.set(k,{key:k,items:[]});g.get(k).items.push({a,i})});
   const out=[...g.values()];
-  out.forEach(x=>{x.items.sort((p,q)=>tryNo(p.a.question)-tryNo(q.a.question)||p.i-q.i);
+  out.forEach(x=>{x.items.sort((p,q)=>tryOf(p.a)-tryOf(q.a)||p.i-q.i);
     x.title=x.items.map(t=>baseTitle(t.a.question)).sort((a,b)=>b.length-a.length)[0];
-    x.tag=tagOf(x.items[0].a.question);x.latest=x.items[x.items.length-1]});
+    x.tag=x.items[0].a.type||tagOf(x.items[0].a.question);x.src=x.items[0].a.source||'';x.latest=x.items[x.items.length-1]});
   return out;
 }
 function score(tips){const m=String(tips||'').match(/예상\s*([\d~]+)\s*점/);return m?m[1]:''}
@@ -271,8 +291,9 @@ function steps(text){
   return ss.map((s,i)=>{s=s.trim();let r=(ROLES.find(([re])=>re.test(s))||[])[1];if(!r)r=i===0?'시작':(i===ss.length-1?'마무리':'내용');return[r,s]});
 }
 const coreOf=w=>String(w).split('/').map(x=>x.replace(/\([^)]*\)/g,'').replace(/[~…]/g,' ').replace(/\s+/g,' ').trim().toLowerCase()).filter(x=>x.length>=4&&/[a-z]/.test(x));
+function vocabForG(g){const a=g.src?D.vocab.filter(v=>v.source===g.src):[];const b=vocabFor(g.items.map(t=>t.a.my_answer));return [...new Set([...a,...b])]}
 function vocabFor(texts){const T=texts.join(' ').toLowerCase().replace(/\s+/g,' ');return D.vocab.filter(v=>coreOf(v.wrong).some(c=>T.includes(c)))}
-function sourcesFor(v){const cs=coreOf(v.wrong);if(!cs.length)return[];return groups().filter(g=>g.items.some(({a})=>{const t=a.my_answer.toLowerCase().replace(/\s+/g,' ');return cs.some(c=>t.includes(c))}))}
+function sourcesFor(v){if(v.source){const m=groups().filter(g=>g.src===v.source);if(m.length)return m}const cs=coreOf(v.wrong);if(!cs.length)return[];return groups().filter(g=>g.items.some(({a})=>{const t=a.my_answer.toLowerCase().replace(/\s+/g,' ');return cs.some(c=>t.includes(c))}))}
 function rAnswers(){
   if(openAns!==null){const g=groups().find(x=>x.key===openAns);if(g)return rAnswer(g);openAns=null}
   const gs=groups().filter(g=>S.af==='전체'||g.tag===S.af);
@@ -282,7 +303,7 @@ function rAnswers(){
   <div class="chips">${ansTags().map(t=>`<button class="chip" data-af="${esc(t)}" aria-pressed="${S.af===t}">${esc(t)}</button>`).join('')}</div>
   <div class="list">${gs.map(g=>{const sc=g.items.map(t=>score(t.a.tips)).filter(Boolean);const d=g.items.reduce((n,t)=>n+(S.doneId[t.a.id]||0),0);
     return `<button class="item" data-open="${esc(g.key)}"><span class="tag">${esc(g.tag)}</span><span class="t"><div>${esc(g.title)}</div>
-    <div class="meta">${g.items.length>1?`${g.items.length}번 시도 · `:''}${sc.length?`예상 ${sc.map(esc).join(' → ')}점`:''}${d?` · <span class="done">✓ 연습 ${d}회</span>`:''}</div></span></button>`}).join('')}</div></div>`;
+    <div class="meta">${g.src?`${esc(g.src)} · `:''}${g.items.length>1?`${g.items.length}번 시도 · `:''}${sc.length?`예상 ${sc.map(esc).join(' → ')}점`:''}${d?` · <span class="done">✓ 연습 ${d}회</span>`:''}</div></span></button>`}).join('')}</div></div>`;
 }
 const norm=w=>w.toLowerCase().replace(/[^a-z0-9']/g,'');
 function markModel(text,att){
@@ -294,12 +315,12 @@ function markModel(text,att){
 function rAnswer(g){
   const L=g.latest.a,li=g.latest.i,showModel=L._show;
   const sc=g.items.map(t=>score(t.a.tips));
-  const vs=vocabFor(g.items.map(t=>t.a.my_answer));
+  const vs=vocabForG(g);
   let h=`<div class="stack">
   <button class="back" id="back">← 문제 목록</button>
-  <div class="card stack"><div class="row" style="gap:8px;align-items:center"><span class="tag">${esc(g.tag)}</span>${g.items.length>1?`<span class="stat">${g.items.length}번 시도</span>`:''}</div>
+  <div class="card stack"><div class="row" style="gap:8px;align-items:center"><span class="tag">${esc(g.tag)}</span>${g.src?`<span class="stat">${esc(g.src)}</span>`:''}${g.items.length>1?`<span class="stat">${g.items.length}번 시도</span>`:''}</div>
     <div class="q">${esc(g.title)}</div>
-    ${sc.some(Boolean)?`<div class="trend">${g.items.map((t,k)=>`<span><small>${tryNo(t.a.question)}차</small><b>${esc(sc[k]||'-')}</b></span>`).join('<i>→</i>')}<span class="unit">예상 점수</span></div>`:''}
+    ${sc.some(Boolean)?`<div class="trend">${g.items.map((t,k)=>`<span><small>${tryOf(t.a)}차</small><b>${esc(sc[k]||'-')}</b></span>`).join('<i>→</i>')}<span class="unit">예상 점수</span></div>`:''}
   </div>
   <div class="seg" role="group" aria-label="보기 선택">${[['practice','연습'],['steps','답변 구조'],['history','시도 기록'],['vocab',`교정 표현 ${vs.length}`]].map(([k,l])=>`<button data-sec="${k}" aria-pressed="${sec===k}">${l}</button>`).join('')}</div>`;
   if(sec==='practice'){
@@ -308,18 +329,19 @@ function rAnswer(g){
     <textarea id="att" placeholder="${dict?'말하기 버튼을 누르고 영어로 답해 보세요. 직접 입력해도 됩니다.':'영어로 답변을 입력하세요.'}">${esc(attempt)}</textarea></div>
     <button class="btn primary" id="show">${showModel?'다시 비교하기':'2. 최신 교정 답변과 비교하기'}</button>`;
     if(showModel){const m=markModel(L.corrected,attempt);
-      h+=`<div class="card stack"><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">최신 교정 답변 (${tryNo(L.question)}차)</span>${spkBtn(L.corrected)}</div>
+      h+=`<div class="card stack"><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">최신 교정 답변 (${tryOf(L)}차)</span>${spkBtn(L.corrected)}</div>
       ${attempt.trim()?`<div class="cover">교정 답변 단어 중 <b>${m.pct}%</b>를 썼어요. <span class="miss">빨간 단어</span>는 빠진 표현입니다.</div>`:''}
       <div class="model">${attempt.trim()?m.html:esc(L.corrected)}</div>
       ${tipBlock(L.tips)}</div>
       <button class="btn good" id="markdone">연습 완료 ${S.doneId[L.id]?`(${S.doneId[L.id]}회 했음)`:''}</button>`}
   }else if(sec==='steps'){
-    h+=`<div class="card stack"><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">최신 교정 답변을 문장별로</span>${spkBtn(L.corrected)}</div>
+    h+=structBlock(g.tag);
+    h+=`<div class="card stack"><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">내 교정 답변에 적용하면</span>${spkBtn(L.corrected)}</div>
     <ol class="steps">${steps(L.corrected).map(([r,s])=>`<li><span class="role">${esc(r)}</span><div class="sline"><p>${esc(s)}</p>${spkBtn(s)}</div></li>`).join('')}</ol>
     <p class="note" style="margin:0">문장 흐름을 먼저 외우고, 연습 탭에서 처음부터 말해 보세요.</p></div>`;
   }else if(sec==='history'){
     h+=`<div class="timeline">${g.items.map(({a},k)=>{const bd=breakdown(a.tips);return `<div class="card stack">
-      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>${tryNo(a.question)}차 시도</h2>${score(a.tips)?`<span class="score">예상 ${esc(score(a.tips))}점</span>`:''}</div>
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2>${tryOf(a)}차 시도</h2>${score(a.tips)?`<span class="score">예상 ${esc(score(a.tips))}점</span>`:''}</div>
       ${bd.length?`<div class="bd">${bd.map(([n,v])=>`<span><small>${esc(n)}</small><b>${esc(v)}</b></span>`).join('')}</div>`:''}
       <div><span class="lbl">내가 한 답변</span><p class="mine">${esc(a.my_answer)}</p></div>
       <div><div class="row" style="justify-content:space-between;align-items:center"><span class="lbl">교정 답변</span>${spkBtn(a.corrected)}</div><p class="model" style="margin:6px 0 0">${esc(a.corrected)}</p></div>
@@ -331,14 +353,22 @@ function rAnswer(g){
   }
   return h+'</div>';
 }
+function structBlock(type){
+  const st=(D.structure||[]).find(x=>x.type===type),cm=(D.structure||[]).find(x=>x.type==='공통');
+  if(!st&&!cm)return'';
+  return `<div class="card stack"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="lbl">${esc(type)} 답변 순서</span>${st?`<span class="stat">${esc(st.question_no||'')}</span>`:''}</div>
+  ${st?`<ol class="ssteps">${st.steps.map(x=>`<li><div class="sdo"><span class="snum">${esc(x.step)}</span>${esc(x.do)}</div><div class="sline"><p class="frame">${esc(x.frame)}</p>${spkBtn(x.frame.replace(/~|\.\.\./g,' '))}</div></li>`).join('')}</ol>`:''}
+  ${st&&st.tips?`<div class="tips"><b>이 유형 팁</b> · ${esc(st.tips)}</div>`:''}
+  ${cm&&cm.tips?`<p class="note" style="margin:0"><b>모든 유형 공통</b> · ${esc(cm.tips)}</p>`:''}</div>`;
+}
 function tipBlock(t){const x=tipText(t);return x?`<div class="tips"><b>포인트</b> · ${esc(x)}</div>`:''}
-function vrow(x,pick){return `<div class="v-row">${pick?`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="tag st-${stOf(x)}">${stLabel(x)}</span></div>`:''}<div class="w wrong">${esc(x.wrong)}</div><div class="r">${esc(x.right)}</div><div class="m">${esc(x.meaning)}</div>${x.example?`<div class="exs">${esc(x.example)}</div>`:''}${pick?stPicker(x):''}</div>`}
+function vrow(x,pick){return `<div class="v-row">${pick?`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span class="tag st-${stOf(x)}">${stLabel(x)}</span></div>`:''}<div class="w wrong">${esc(x.wrong)}</div><div class="r">${esc(x.right)}</div><div class="m">${esc(x.meaning)}</div>${vMeta(x)}${whyBlock(x)}${x.example?`<div class="exs">${esc(x.example)}</div>`:''}${pick?stPicker(x):''}</div>`}
 
 /* ---------- list ---------- */
 const PROMPT=`오늘 교정해 준 어휘와 답변을 아래 JSON 형식으로만 정리해 줘. 다른 설명은 빼고 JSON만 줘.
 {"vocab":[{"wrong":"내가 쓴 표현","right":"교정된 표현","meaning":"뜻","example":"예문"}],
 "answers":[{"question":"[유형] 문제","my_answer":"내 답변","corrected":"교정된 답변","tips":"포인트"}]}`;
-let adding=false,addMsg='',lf='all';
+let adding=false,addMsg='',lf='all',cf='all';
 function rAdd(){
   return `<div class="stack"><button class="back" id="addback">← 전체 목록</button>
   <div class="card stack"><span class="lbl">교정 자료 추가</span><div>채팅에서 받은 JSON을 <b>복사</b>한 뒤 아래 버튼을 누르세요.</div>
@@ -363,6 +393,14 @@ function rLog(){
   <p class="note" style="margin:0">직접 추가한 자료는 이 폰에만 저장됩니다. · 앱 버전 ${APP_VERSION}</p></div>`;
 }
 let baseN={v:0,a:0};
+/* items already in the shared base data are dropped from this phone's extras, so newer base data wins */
+function pruneExtra(){const ex=extra();
+  const vk=new Set();D.vocab.forEach(v=>{vk.add('i'+v.id);vk.add('k'+vid(v));vk.add('w'+v.wrong)});
+  const ak=new Set();D.answers.forEach(a=>{ak.add('i'+a.id);ak.add('k'+akey(a))});
+  const nv=ex.vocab.filter(v=>!(vk.has('i'+v.id)||vk.has('k'+vid(v))||vk.has('w'+v.wrong)));
+  const na=ex.answers.filter(a=>!(ak.has('i'+a.id)||ak.has('k'+akey(a))));
+  if(nv.length!==ex.vocab.length||na.length!==ex.answers.length){ex.vocab=nv;ex.answers=na;try{localStorage.setItem('spa-extra',JSON.stringify(ex))}catch(e){}}
+  return ex}
 function extra(){try{const x=JSON.parse(localStorage.getItem('spa-extra')||'null');if(x&&Array.isArray(x.vocab)&&Array.isArray(x.answers))return x}catch(e){}return{vocab:[],answers:[]}}
 const akey=a=>a.question+'|'+a.my_answer;
 function hid(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
@@ -370,22 +408,30 @@ function ensureIds(d){d.vocab.forEach(v=>{if(!v.id)v.id='h'+hid(vid(v))});d.answ
 /* keep old progress: old box(0-3, keyed by text) -> new status keyed by id; done by index -> by id */
 function migrate(){
   if(!S.card)S.card={};if(!S.doneId)S.doneId={};
-  if(S.mig>=2)return;
+  if(S.mig>=2){migrate3();return}
   D.vocab.forEach(v=>{if(S.card[v.id])return;const b=(S.box||{})[vid(v)]||0;
     if(b>=3)S.card[v.id]={s:'known',n:NEED};else if(b===2)S.card[v.id]={s:'learning',n:2};else if(b===1)S.card[v.id]={s:'hard',n:0}});
   Object.keys(S.done||{}).forEach(i=>{const a=D.answers[+i];if(a&&!S.doneId[a.id])S.doneId[a.id]=S.done[i]});
-  S.mig=2;save();
+  S.mig=2;save();migrate3();
 }
-function mergeInto(base,add){
+function migrate3(){
+  if(S.mig>=3)return;
+  D.vocab.forEach(v=>{if(S.card[v.id])return;for(const k of[v.id.toLowerCase(),'h'+hid(vid(v))])if(S.card[k]){S.card[v.id]=S.card[k];break}});
+  D.answers.forEach(a=>{if(S.doneId[a.id])return;for(const k of[a.id.toLowerCase(),'h'+hid(akey(a))])if(S.doneId[k]){S.doneId[a.id]=S.doneId[k];break}});
+  S.mig=3;save();
+}
+function mergeStruct(base,add){if(!Array.isArray(add.structure))return 0;base.structure=base.structure||[];let n=0;for(const st of add.structure){if(!st||!st.type)continue;const i=base.structure.findIndex(x=>(st.id&&x.id===st.id)||x.type===st.type);if(i<0)base.structure.push(st);else if(JSON.stringify(base.structure[i])!==JSON.stringify(st))base.structure[i]=st;else continue;n++}return n}
+function mergeInto(base,add){mergeStruct(base,add);
   ensureIds(base);const vm=new Map(base.vocab.map(v=>[vid(v),v])),vi=new Map(base.vocab.map(v=>[v.id,v])),vw=new Map(base.vocab.map(v=>[v.wrong,v])),am=new Map(base.answers.map(a=>[akey(a),a])),ai=new Map(base.answers.map(a=>[a.id,a]));let nv=0,na=0,nu=0;
   for(const v of add.vocab||[]){if(!(v&&v.wrong&&v.right))continue;const ex=(v.id&&vi.get(v.id))||vm.get(vid(v))||vw.get(String(v.wrong));
-    if(!ex){const o={wrong:String(v.wrong),right:String(v.right),meaning:String(v.meaning||''),example:String(v.example||'')};o.id=v.id?String(v.id):'h'+hid(vid(o));base.vocab.push(o);vm.set(vid(o),o);vi.set(o.id,o);vw.set(o.wrong,o);nv++;continue}
-    let ch=false;for(const f of['right','wrong','meaning','example']){if(v[f]&&String(v[f])!==ex[f]){ex[f]=String(v[f]);ch=true}}if(ch)nu++}
+    if(!ex){const o={wrong:String(v.wrong),right:String(v.right),meaning:String(v.meaning||''),example:String(v.example||'')};for(const f of ['category','type','source','why_wrong','why_better'])if(v[f])o[f]=String(v[f]);o.id=v.id?String(v.id):'h'+hid(vid(o));base.vocab.push(o);vm.set(vid(o),o);vi.set(o.id,o);vw.set(o.wrong,o);nv++;continue}
+    let ch=false;for(const f of['right','wrong','meaning','example','category','type','source','why_wrong','why_better']){if(v[f]&&String(v[f])!==ex[f]){ex[f]=String(v[f]);ch=true}}if(ch)nu++}
   for(const a of add.answers||[]){if(!(a&&a.question&&a.corrected))continue;const ex=(a.id&&ai.get(a.id))||am.get(akey(a));
-    if(!ex){const o={question:String(a.question),my_answer:String(a.my_answer||''),corrected:String(a.corrected),tips:String(a.tips||''),prev:Array.isArray(a.prev)?a.prev.map(String):[]};o.id=a.id?String(a.id):'h'+hid(akey(o));base.answers.push(o);am.set(akey(o),o);ai.set(o.id,o);na++;continue}
+    if(!ex){const o={question:String(a.question),my_answer:String(a.my_answer||''),corrected:String(a.corrected),tips:String(a.tips||''),type:a.type?String(a.type):undefined,source:a.source?String(a.source):undefined,attempt:a.attempt||undefined,prev:Array.isArray(a.prev)?a.prev.map(String):[]};o.id=a.id?String(a.id):'h'+hid(akey(o));base.answers.push(o);am.set(akey(o),o);ai.set(o.id,o);na++;continue}
     let ch=false;
     if(String(a.corrected)!==ex.corrected){ex.prev=[...new Set([...(ex.prev||[]),ex.corrected,...(Array.isArray(a.prev)?a.prev:[])])].filter(x=>x!==String(a.corrected));ex.corrected=String(a.corrected);ch=true}
     if(a.tips&&String(a.tips)!==ex.tips){ex.tips=String(a.tips);ch=true}
+    for(const f of['type','source','attempt'])if(a[f]&&a[f]!==ex[f]){ex[f]=a[f];ch=true}
     if(ch)nu++}
   return[nv,na,nu];
 }
@@ -403,10 +449,11 @@ function doImport(text){importTexts([{text,src:'직접 붙여 넣기'}])}
 
 function rList(){
   const k=q.trim().toLowerCase();
-  const v=D.vocab.filter(x=>(!k||(x.wrong+x.right+x.meaning+x.example).toLowerCase().includes(k))&&(lf==='all'||stOf(x)===lf));
+  const v=D.vocab.filter(x=>(!k||(x.wrong+x.right+x.meaning+x.example+(x.why_wrong||'')+(x.why_better||'')+(x.category||'')+(x.source||'')).toLowerCase().includes(k))&&(lf==='all'||stOf(x)===lf)&&(cf==='all'||x.category===cf));
   if(adding)return rAdd();
   return `<div class="stack"><button class="btn" id="add">+ 새 교정 자료 추가</button><input class="search" id="q" type="search" placeholder="표현이나 뜻으로 검색 (예: 수동태, tend)" value="${esc(q)}">
   <div class="chips">${[['all','전체'],['new','새 카드'],['hard','헷갈림'],['learning','익히는 중'],['known','외움']].map(([k2,l])=>`<button class="chip" data-lf="${k2}" aria-pressed="${lf===k2}">${l}</button>`).join('')}</div>
+  ${(()=>{const cs=[...new Set(D.vocab.map(x=>x.category).filter(Boolean))];return cs.length?`<div class="chips">${[['all','유형 전체'],...cs.map(c=>[c,c])].map(([k2,l])=>`<button class="chip" data-cf="${esc(k2)}" aria-pressed="${cf===k2}">${esc(l)} ${k2==='all'?'':D.vocab.filter(x=>x.category===k2).length}</button>`).join('')}</div>`:''})()}
   <span class="stat">${v.length}개 · 아래 버튼으로 분류를 바꿀 수 있어요</span>
   <div class="list">${v.map(x=>vrow(x,true)).join('')||'<p class="empty">찾는 표현이 없어요.</p>'}</div></div>`;
 }
@@ -430,6 +477,7 @@ document.addEventListener('click',async e=>{
   if(t.dataset.open!==undefined){openAns=t.dataset.open;sec='practice';attempt='';const g=groups().find(x=>x.key===openAns);if(g)g.latest.a._show=false;window.scrollTo(0,0);render();return}
   if(t.dataset.setst){const v=D.vocab.find(x=>x.id===t.dataset.id);if(v){setStatus(v,t.dataset.setst);if(S.tab==='cards'&&cur&&cur.id===v.id)pinned=v.id}render();return}
   if(t.dataset.lf){lf=t.dataset.lf;render();return}
+  if(t.dataset.cf){cf=t.dataset.cf;render();return}
   if(t.dataset.sec){stopMic();sec=t.dataset.sec;render();return}
   if(t.dataset.jump!==undefined){S.tab='answers';S.af='전체';openAns=t.dataset.jump;sec='history';attempt='';save();window.scrollTo(0,0);render();return}
   switch(t.id){
@@ -474,7 +522,7 @@ async function keyFrom(pw){
 }
 async function unlock(key){
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(ENC.iv)},key,b64(ENC.ct));
-  D=JSON.parse(new TextDecoder().decode(pt));baseN={v:D.vocab.length,a:D.answers.length};ensureIds(D);mergeInto(D,extra());migrate();render();
+  D=JSON.parse(new TextDecoder().decode(pt));baseN={v:D.vocab.length,a:D.answers.length};ensureIds(D);mergeInto(D,pruneExtra());migrate();render();
 }
 function lockScreen(msg){
   document.getElementById('app').innerHTML=`<form class="card stack" id="lock" style="margin-top:24px">
@@ -514,7 +562,7 @@ fetch('data.enc.json').then(r=>r.json()).then(async enc=>{
   };
   render();
 })();
-const APP_VERSION='v9 (11/21)';
+const APP_VERSION='v10 (11/22)';
 if('serviceWorker' in navigator){
   const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController&&!reloaded){reloaded=true;location.reload()}});
